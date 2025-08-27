@@ -1,0 +1,394 @@
+syntax = "proto3";
+
+package yao.archive;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/archive;archive";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// StorageService provides blockchain data persistence capabilities
+service StorageService {
+  // StoreBlock persists a complete block with all related data
+  rpc StoreBlock(StoreBlockRequest) returns (StoreBlockResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/blocks/store"
+      body: "*"
+    };
+  }
+  
+  // StoreReceipts persists transaction receipts
+  rpc StoreReceipts(StoreReceiptsRequest) returns (StoreReceiptsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/receipts/store"
+      body: "*"
+    };
+  }
+  
+  // StoreState persists account state changes
+  rpc StoreState(StoreStateRequest) returns (StoreStateResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/state/store"
+      body: "*"
+    };
+  }
+  
+  // GetHistoricalState retrieves account state at specific block
+  rpc GetHistoricalState(GetHistoricalStateRequest) returns (GetHistoricalStateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/state/historical/{address}/{block_number}"
+    };
+  }
+  
+  // GetStorageStatus returns current storage system status
+  rpc GetStorageStatus(GetStorageStatusRequest) returns (GetStorageStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/storage/status"
+    };
+  }
+  
+  // ValidateChainIntegrity validates blockchain data integrity
+  rpc ValidateChainIntegrity(ValidateChainIntegrityRequest) returns (ValidateChainIntegrityResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/storage/validate"
+      body: "*"
+    };
+  }
+  
+  // CreateBackup creates a backup of blockchain data
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/storage/backup"
+      body: "*"
+    };
+  }
+  
+  // WatchStorage subscribes to storage events
+  rpc WatchStorage(WatchStorageRequest) returns (stream StorageEvent);
+}
+
+// StoreBlockRequest requests block storage
+message StoreBlockRequest {
+  yao.common.RequestMetadata metadata = 1;
+  yao.common.Block block = 2;                   // Block to store
+  repeated yao.common.TransactionReceipt receipts = 3; // Transaction receipts
+  repeated yao.common.StateChange state_changes = 4;   // State changes
+  StorageOptions options = 5;                   // Storage options
+}
+
+// StorageOptions configures storage behavior
+message StorageOptions {
+  bool validate_integrity = 1;                  // Whether to validate data integrity
+  bool create_indexes = 2;                      // Whether to create database indexes
+  bool compress_data = 3;                       // Whether to compress stored data
+  bool broadcast_cache_invalidation = 4;        // Whether to broadcast cache invalidation
+}
+
+// StoreBlockResponse returns block storage result
+message StoreBlockResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bool success = 2;                             // Whether storage succeeded
+  string error = 3;                             // Error message if storage failed
+  StorageStatistics stats = 4;                  // Storage operation statistics
+}
+
+// StorageStatistics contains storage operation metrics
+message StorageStatistics {
+  uint64 storage_time_ms = 1;                   // Storage operation time
+  uint64 bytes_stored = 2;                      // Number of bytes stored
+  uint64 records_inserted = 3;                  // Number of database records inserted
+  uint64 records_updated = 4;                   // Number of database records updated
+  uint64 cache_keys_invalidated = 5;            // Number of cache keys invalidated
+}
+
+// StoreReceiptsRequest requests receipt storage
+message StoreReceiptsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  repeated yao.common.TransactionReceipt receipts = 2; // Receipts to store
+  uint64 block_number = 3;                      // Block number for receipts
+  string block_hash = 4;                        // Block hash for receipts
+}
+
+// StoreReceiptsResponse returns receipt storage result
+message StoreReceiptsResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bool success = 2;                             // Whether storage succeeded
+  string error = 3;                             // Error message if storage failed
+  uint32 receipts_stored = 4;                   // Number of receipts stored
+}
+
+// StoreStateRequest requests state storage
+message StoreStateRequest {
+  yao.common.RequestMetadata metadata = 1;
+  repeated yao.common.StateChange state_changes = 2; // State changes to store
+  uint64 block_number = 3;                      // Block number for state changes
+  string state_root = 4;                        // New state root hash
+}
+
+// StoreStateResponse returns state storage result
+message StoreStateResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bool success = 2;                             // Whether storage succeeded
+  string error = 3;                             // Error message if storage failed
+  uint32 changes_stored = 4;                    // Number of state changes stored
+}
+
+// GetHistoricalStateRequest requests historical account state
+message GetHistoricalStateRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                           // Account address
+  uint64 block_number = 3;                      // Block number for historical state
+}
+
+// GetHistoricalStateResponse returns historical account state
+message GetHistoricalStateResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Account account = 2;               // Historical account state
+  bool found = 3;                               // Whether account state was found
+}
+
+// GetStorageStatusRequest requests storage system status
+message GetStorageStatusRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bool include_metrics = 2;                     // Whether to include detailed metrics
+}
+
+// GetStorageStatusResponse returns storage system status
+message GetStorageStatusResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  StorageSystemStatus status = 2;               // Storage system status
+}
+
+// StorageSystemStatus represents the current state of the storage system
+message StorageSystemStatus {
+  bool is_healthy = 1;                          // Whether storage system is healthy
+  StorageSystemState state = 2;                 // Current system state
+  DatabaseStatus database = 3;                  // Database status
+  CacheStatus cache = 4;                        // Cache status
+  uint64 total_blocks_stored = 5;               // Total blocks stored
+  uint64 total_transactions_stored = 6;         // Total transactions stored
+  uint64 last_stored_block = 7;                 // Last stored block number
+  StorageMetrics metrics = 8;                   // Detailed metrics (if requested)
+}
+
+// StorageSystemState represents different storage system states
+enum StorageSystemState {
+  INITIALIZING = 0;                             // System is initializing
+  READY = 1;                                    // System is ready for operations
+  STORING = 2;                                  // System is actively storing data
+  MAINTENANCE = 3;                              // System is in maintenance mode
+  ERROR = 4;                                    // System is in error state
+}
+
+// DatabaseStatus provides database connectivity and performance info
+message DatabaseStatus {
+  bool connected = 1;                           // Whether database is connected
+  uint32 active_connections = 2;                // Number of active connections
+  uint32 idle_connections = 3;                  // Number of idle connections
+  double avg_query_time_ms = 4;                 // Average query execution time
+  uint64 total_queries = 5;                     // Total queries executed
+  uint64 failed_queries = 6;                    // Number of failed queries
+}
+
+// CacheStatus provides cache performance information
+message CacheStatus {
+  bool connected = 1;                           // Whether cache is connected
+  uint64 total_keys = 2;                        // Total number of cache keys
+  uint64 memory_usage_bytes = 3;                // Cache memory usage
+  double hit_ratio = 4;                         // Cache hit ratio (0.0-1.0)
+  uint64 evictions = 5;                         // Number of cache evictions
+}
+
+// StorageMetrics contains detailed storage performance metrics
+message StorageMetrics {
+  uint64 avg_block_store_time_ms = 1;           // Average block storage time
+  uint64 avg_receipt_store_time_ms = 2;         // Average receipt storage time
+  uint64 avg_state_store_time_ms = 3;           // Average state storage time
+  uint64 total_storage_operations = 4;          // Total storage operations
+  uint64 failed_storage_operations = 5;         // Failed storage operations
+  uint64 total_bytes_stored = 6;                // Total bytes stored
+  map<string, uint64> error_counts = 7;         // Error counts by type
+}
+
+// ValidateChainIntegrityRequest requests chain validation
+message ValidateChainIntegrityRequest {
+  yao.common.RequestMetadata metadata = 1;
+  uint64 from_block = 2;                        // Starting block number (0 for genesis)
+  uint64 to_block = 3;                          // Ending block number (0 for latest)
+  ValidationOptions options = 4;                // Validation options
+}
+
+// ValidationOptions configures chain validation
+message ValidationOptions {
+  bool check_block_hashes = 1;                  // Whether to verify block hashes
+  bool check_state_roots = 2;                   // Whether to verify state roots
+  bool check_receipt_roots = 3;                 // Whether to verify receipt roots
+  bool check_transaction_integrity = 4;         // Whether to verify transaction data
+  bool fix_inconsistencies = 5;                 // Whether to attempt fixes
+}
+
+// ValidateChainIntegrityResponse returns validation results
+message ValidateChainIntegrityResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  ValidationResult result = 2;                  // Validation result
+}
+
+// ValidationResult contains chain validation results
+message ValidationResult {
+  bool is_valid = 1;                            // Whether chain is valid
+  uint64 blocks_validated = 2;                  // Number of blocks validated
+  repeated ValidationError errors = 3;          // Validation errors found
+  repeated ValidationWarning warnings = 4;      // Validation warnings
+  uint64 validation_time_ms = 5;                // Total validation time
+}
+
+// ValidationError represents a validation error
+message ValidationError {
+  ValidationErrorType type = 1;                 // Error type
+  uint64 block_number = 2;                      // Block number with error
+  string description = 3;                       // Error description
+  bool fixed = 4;                               // Whether error was fixed
+}
+
+// ValidationWarning represents a validation warning
+message ValidationWarning {
+  ValidationWarningType type = 1;               // Warning type
+  uint64 block_number = 2;                      // Block number with warning
+  string description = 3;                       // Warning description
+}
+
+// ValidationErrorType represents different validation error types
+enum ValidationErrorType {
+  INVALID_BLOCK_HASH = 0;                       // Invalid block hash
+  INVALID_STATE_ROOT = 1;                       // Invalid state root
+  INVALID_RECEIPT_ROOT = 2;                     // Invalid receipt root
+  MISSING_TRANSACTION = 3;                      // Missing transaction data
+  CORRUPTED_DATA = 4;                           // Corrupted stored data
+  INCONSISTENT_STATE = 5;                       // Inconsistent state data
+}
+
+// ValidationWarningType represents different validation warning types
+enum ValidationWarningType {
+  PERFORMANCE_DEGRADATION = 0;                  // Performance degradation detected
+  LARGE_BLOCK_SIZE = 1;                         // Unusually large block size
+  HIGH_GAS_USAGE = 2;                           // High gas usage in block
+  SPARSE_DATA = 3;                              // Sparse or missing optional data
+}
+
+// CreateBackupRequest requests backup creation
+message CreateBackupRequest {
+  yao.common.RequestMetadata metadata = 1;
+  BackupOptions options = 2;                    // Backup options
+}
+
+// BackupOptions configures backup creation
+message BackupOptions {
+  string backup_name = 1;                       // Backup name/identifier
+  BackupType type = 2;                          // Backup type
+  uint64 from_block = 3;                        // Starting block (for partial backups)
+  uint64 to_block = 4;                          // Ending block (for partial backups)
+  bool compress_backup = 5;                     // Whether to compress backup
+  string storage_location = 6;                  // Backup storage location
+}
+
+// BackupType represents different backup types
+enum BackupType {
+  FULL_BACKUP = 0;                              // Complete blockchain backup
+  INCREMENTAL_BACKUP = 1;                       // Incremental backup since last
+  PARTIAL_BACKUP = 2;                           // Partial backup of specific range
+  STATE_ONLY_BACKUP = 3;                        // State data only backup
+}
+
+// CreateBackupResponse returns backup creation result
+message CreateBackupResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  BackupResult result = 2;                      // Backup result
+}
+
+// BackupResult contains backup operation results
+message BackupResult {
+  bool success = 1;                             // Whether backup succeeded
+  string error = 2;                             // Error message if backup failed
+  string backup_id = 3;                         // Unique backup identifier
+  uint64 backup_size_bytes = 4;                 // Backup size in bytes
+  uint64 blocks_backed_up = 5;                  // Number of blocks backed up
+  uint64 backup_time_ms = 6;                    // Backup operation time
+  string storage_path = 7;                      // Path where backup is stored
+}
+
+// WatchStorageRequest requests storage event subscription
+message WatchStorageRequest {
+  yao.common.RequestMetadata metadata = 1;
+  repeated StorageEventType event_types = 2;    // Specific event types to watch
+}
+
+// StorageEvent represents storage-related events
+message StorageEvent {
+  string subscription_id = 1;                   // Unique subscription identifier
+  StorageEventType type = 2;                    // Event type
+  uint64 timestamp = 3;                         // Unix timestamp of event
+  oneof event_data {
+    BlockStoredEvent block_stored = 4;
+    StateStoredEvent state_stored = 5;
+    ValidationEvent validation = 6;
+    BackupEvent backup = 7;
+  }
+}
+
+// StorageEventType represents different storage event types
+enum StorageEventType {
+  BLOCK_STORED = 0;                             // Block successfully stored
+  STATE_STORED = 1;                             // State successfully stored
+  STORAGE_ERROR = 2;                            // Storage error occurred
+  VALIDATION_COMPLETED = 3;                     // Validation completed
+  BACKUP_CREATED = 4;                           // Backup created
+  CACHE_INVALIDATED = 5;                        // Cache invalidated
+}
+
+// BlockStoredEvent contains block storage event data
+message BlockStoredEvent {
+  uint64 block_number = 1;                      // Block number
+  string block_hash = 2;                        // Block hash
+  uint64 storage_time_ms = 3;                   // Storage time
+  uint32 transaction_count = 4;                 // Number of transactions
+  uint64 bytes_stored = 5;                      // Bytes stored
+}
+
+// StateStoredEvent contains state storage event data
+message StateStoredEvent {
+  uint64 block_number = 1;                      // Block number
+  string state_root = 2;                        // New state root
+  uint32 changes_count = 3;                     // Number of state changes
+  uint64 storage_time_ms = 4;                   // Storage time
+}
+
+// ValidationEvent contains validation event data
+message ValidationEvent {
+  ValidationEventType type = 1;                 // Validation event type
+  uint64 blocks_validated = 2;                  // Number of blocks validated
+  uint32 errors_found = 3;                      // Number of errors found
+  uint64 validation_time_ms = 4;                // Validation time
+}
+
+// ValidationEventType represents validation event types
+enum ValidationEventType {
+  VALIDATION_STARTED = 0;                       // Validation started
+  VALIDATION_COMPLETED = 1;                     // Validation completed
+  VALIDATION_FAILED = 2;                        // Validation failed
+}
+
+// BackupEvent contains backup event data
+message BackupEvent {
+  BackupEventType type = 1;                     // Backup event type
+  string backup_id = 2;                         // Backup identifier
+  uint64 backup_size_bytes = 3;                 // Backup size
+  uint64 backup_time_ms = 4;                    // Backup time
+  string error = 5;                             // Error message (for failed events)
+}
+
+// BackupEventType represents backup event types
+enum BackupEventType {
+  BACKUP_STARTED = 0;                           // Backup started
+  BACKUP_COMPLETED = 1;                         // Backup completed
+  BACKUP_FAILED = 2;                            // Backup failed
+} 

@@ -1,0 +1,466 @@
+syntax = "proto3";
+
+package yao.vulcan;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/vulcan;vulcan";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// OracleService provides YaoOracle state access capabilities (L1/L2/L3 cache system)
+service OracleService {
+  // GetState retrieves state data through the three-tier cache system
+  rpc GetState(GetStateRequest) returns (GetStateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/oracle/state/{key}"
+    };
+  }
+  
+  // GetStateBatch retrieves multiple state entries in a single request
+  rpc GetStateBatch(GetStateBatchRequest) returns (GetStateBatchResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/oracle/state/batch"
+      body: "*"
+    };
+  }
+  
+  // PutState stores state data in the cache system (primarily L1)
+  rpc PutState(PutStateRequest) returns (PutStateResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/oracle/state/{key}"
+      body: "*"
+    };
+  }
+  
+  // InvalidateState removes state from cache layers
+  rpc InvalidateState(InvalidateStateRequest) returns (InvalidateStateResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/oracle/state/{key}"
+    };
+  }
+  
+  // GetCacheStatus returns current cache system status and metrics
+  rpc GetCacheStatus(GetCacheStatusRequest) returns (GetCacheStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/oracle/cache/status"
+    };
+  }
+  
+  // WarmupCache preloads frequently accessed state data
+  rpc WarmupCache(WarmupCacheRequest) returns (WarmupCacheResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/oracle/cache/warmup"
+      body: "*"
+    };
+  }
+  
+  // PurgeCache clears cache data based on criteria
+  rpc PurgeCache(PurgeCacheRequest) returns (PurgeCacheResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/oracle/cache/purge"
+      body: "*"
+    };
+  }
+  
+  // WatchCache subscribes to cache events
+  rpc WatchCache(WatchCacheRequest) returns (stream CacheEvent);
+}
+
+// GetStateRequest requests state data retrieval
+message GetStateRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string key = 2;                               // State key to retrieve
+  CacheStrategy strategy = 3;                   // Cache access strategy
+  bool include_metadata = 4;                    // Whether to include cache metadata
+}
+
+// CacheStrategy defines how to access the cache hierarchy
+enum CacheStrategy {
+  AUTO = 0;                                     // Automatic L1 -> L2 -> L3 fallback
+  L1_ONLY = 1;                                  // L1 cache only (fastest)
+  L2_PREFERRED = 2;                             // Try L2 first, then L3
+  L3_DIRECT = 3;                                // Direct L3 access (bypass cache)
+  REFRESH = 4;                                  // Force refresh from L3 and update caches
+}
+
+// GetStateResponse returns state data and cache information
+message GetStateResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  StateEntry entry = 2;                         // Retrieved state entry
+  CacheHitInfo hit_info = 3;                    // Cache hit information
+}
+
+// StateEntry represents a state data entry
+message StateEntry {
+  string key = 1;                               // State key
+  bytes value = 2;                              // State value
+  bool found = 3;                               // Whether key was found
+  uint64 version = 4;                           // State version/timestamp
+  CacheLevel source = 5;                        // Cache level where data was found
+}
+
+// CacheLevel represents the cache hierarchy levels
+enum CacheLevel {
+  L1_MEMORY = 0;                                // L1 in-memory cache (Go-Ristretto)
+  L2_REDIS = 1;                                 // L2 distributed cache (Redis)
+  L3_DATABASE = 2;                              // L3 persistent storage (TiDB)
+  NOT_FOUND = 3;                                // Data not found in any level
+}
+
+// CacheHitInfo provides information about cache access
+message CacheHitInfo {
+  CacheLevel hit_level = 1;                     // Cache level that provided the data
+  uint64 access_time_ns = 2;                    // Access time in nanoseconds
+  bool was_miss = 3;                            // Whether this was a cache miss
+  repeated CacheLevel checked_levels = 4;       // Cache levels that were checked
+}
+
+// GetStateBatchRequest requests multiple state entries
+message GetStateBatchRequest {
+  yao.common.RequestMetadata metadata = 1;
+  repeated string keys = 2;                     // State keys to retrieve
+  CacheStrategy strategy = 3;                   // Cache access strategy
+  bool include_metadata = 4;                    // Whether to include cache metadata
+  uint32 parallel_requests = 5;                // Number of parallel requests (0 for auto)
+}
+
+// GetStateBatchResponse returns multiple state entries
+message GetStateBatchResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  repeated StateEntry entries = 2;              // Retrieved state entries
+  BatchCacheStats stats = 3;                    // Batch operation statistics
+}
+
+// BatchCacheStats provides statistics for batch operations
+message BatchCacheStats {
+  uint32 total_keys = 1;                        // Total number of keys requested
+  uint32 l1_hits = 2;                           // Number of L1 cache hits
+  uint32 l2_hits = 3;                           // Number of L2 cache hits
+  uint32 l3_hits = 4;                           // Number of L3 database hits
+  uint32 misses = 5;                            // Number of complete misses
+  uint64 total_time_ms = 6;                     // Total batch operation time
+  double hit_ratio = 7;                         // Overall hit ratio (0.0-1.0)
+}
+
+// PutStateRequest requests state data storage
+message PutStateRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string key = 2;                               // State key
+  bytes value = 3;                              // State value
+  PutOptions options = 4;                       // Storage options
+}
+
+// PutOptions configures state storage behavior
+message PutOptions {
+  repeated CacheLevel target_levels = 1;        // Which cache levels to update
+  uint64 ttl_seconds = 2;                       // Time-to-live in seconds (0 for no expiry)
+  bool overwrite = 3;                           // Whether to overwrite existing data
+  bool propagate_to_peers = 4;                  // Whether to propagate to peer nodes
+}
+
+// PutStateResponse returns state storage result
+message PutStateResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bool success = 2;                             // Whether storage succeeded
+  string error = 3;                             // Error message if storage failed
+  repeated CacheLevel updated_levels = 4;       // Cache levels that were updated
+}
+
+// InvalidateStateRequest requests state invalidation
+message InvalidateStateRequest {
+  yao.common.RequestMetadata metadata = 1;
+  oneof target {
+    string key = 2;                             // Single key to invalidate
+    KeyPattern pattern = 3;                     // Pattern-based invalidation
+    repeated string keys = 4;                   // Multiple keys to invalidate
+  }
+  InvalidateOptions options = 5;                // Invalidation options
+}
+
+// KeyPattern represents a pattern for matching cache keys
+message KeyPattern {
+  string prefix = 1;                            // Key prefix to match
+  string suffix = 2;                            // Key suffix to match
+  string regex = 3;                             // Regular expression pattern
+}
+
+// InvalidateOptions configures invalidation behavior
+message InvalidateOptions {
+  repeated CacheLevel target_levels = 1;        // Which cache levels to invalidate
+  bool cascade = 2;                             // Whether to cascade to lower levels
+  bool broadcast = 3;                           // Whether to broadcast to all nodes
+}
+
+// InvalidateStateResponse returns invalidation result
+message InvalidateStateResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bool success = 2;                             // Whether invalidation succeeded
+  string error = 3;                             // Error message if invalidation failed
+  uint32 keys_invalidated = 4;                  // Number of keys invalidated
+  repeated CacheLevel affected_levels = 5;      // Cache levels affected
+}
+
+// GetCacheStatusRequest requests cache system status
+message GetCacheStatusRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bool include_detailed_stats = 2;              // Whether to include detailed statistics
+}
+
+// GetCacheStatusResponse returns cache system status
+message GetCacheStatusResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  OracleCacheStatus status = 2;                 // Cache system status
+}
+
+// OracleCacheStatus represents the current state of the YaoOracle cache system
+message OracleCacheStatus {
+  bool is_healthy = 1;                          // Whether cache system is healthy
+  L1CacheStatus l1_status = 2;                  // L1 cache status
+  L2CacheStatus l2_status = 3;                  // L2 cache status
+  L3CacheStatus l3_status = 4;                  // L3 storage status
+  OverallCacheMetrics overall_metrics = 5;      // Overall cache metrics
+}
+
+// L1CacheStatus represents L1 (Go-Ristretto) cache status
+message L1CacheStatus {
+  bool is_healthy = 1;                          // Whether L1 cache is healthy
+  uint64 current_size = 2;                      // Current cache size in items
+  uint64 max_size = 3;                          // Maximum cache size in items
+  uint64 memory_usage_bytes = 4;                // Memory usage in bytes
+  uint64 memory_limit_bytes = 5;                // Memory limit in bytes
+  double utilization_ratio = 6;                 // Cache utilization ratio (0.0-1.0)
+  uint64 hit_count = 7;                         // Total cache hits
+  uint64 miss_count = 8;                        // Total cache misses
+  double hit_ratio = 9;                         // Cache hit ratio (0.0-1.0)
+  uint64 evictions = 10;                        // Number of evictions
+  double avg_access_time_ns = 11;               // Average access time in nanoseconds
+}
+
+// L2CacheStatus represents L2 (Redis) cache status
+message L2CacheStatus {
+  bool is_healthy = 1;                          // Whether L2 cache is healthy
+  bool connected = 2;                           // Whether connected to Redis
+  uint64 total_keys = 3;                        // Total number of keys
+  uint64 memory_usage_bytes = 4;                // Memory usage in bytes
+  uint64 memory_peak_bytes = 5;                 // Peak memory usage in bytes
+  uint32 connected_clients = 6;                 // Number of connected clients
+  double hit_ratio = 7;                         // Cache hit ratio (0.0-1.0)
+  uint64 operations_per_second = 8;             // Operations per second
+  double avg_access_time_ms = 9;                // Average access time in milliseconds
+  string redis_version = 10;                    // Redis server version
+}
+
+// L3CacheStatus represents L3 (TiDB) storage status
+message L3CacheStatus {
+  bool is_healthy = 1;                          // Whether L3 storage is healthy
+  bool connected = 2;                           // Whether connected to database
+  uint32 active_connections = 3;                // Number of active connections
+  uint32 idle_connections = 4;                  // Number of idle connections
+  double avg_query_time_ms = 5;                 // Average query time in milliseconds
+  uint64 queries_per_second = 6;                // Queries per second
+  uint64 total_records = 7;                     // Total number of state records
+  uint64 storage_size_bytes = 8;                // Storage size in bytes
+  string database_version = 9;                  // Database version
+}
+
+// OverallCacheMetrics provides system-wide cache metrics
+message OverallCacheMetrics {
+  uint64 total_requests = 1;                    // Total state requests
+  uint64 l1_hits = 2;                           // L1 cache hits
+  uint64 l2_hits = 3;                           // L2 cache hits
+  uint64 l3_hits = 4;                           // L3 database hits
+  uint64 total_misses = 5;                      // Total misses
+  double overall_hit_ratio = 6;                 // Overall hit ratio (0.0-1.0)
+  double avg_response_time_ms = 7;              // Average response time
+  uint64 data_transfer_bytes = 8;               // Total data transferred
+  map<string, uint64> access_patterns = 9;      // Access patterns by key prefix
+}
+
+// WarmupCacheRequest requests cache warmup
+message WarmupCacheRequest {
+  yao.common.RequestMetadata metadata = 1;
+  WarmupStrategy strategy = 2;                  // Warmup strategy
+  WarmupOptions options = 3;                    // Warmup options
+}
+
+// WarmupStrategy defines different cache warmup strategies
+message WarmupStrategy {
+  WarmupType type = 1;                          // Warmup type
+  oneof strategy_config {
+    KeyListWarmup key_list = 2;                 // Specific keys to warm up
+    PatternWarmup pattern = 3;                  // Pattern-based warmup
+    PredictiveWarmup predictive = 4;            // ML-based predictive warmup
+  }
+}
+
+// WarmupType represents different warmup strategies
+enum WarmupType {
+  KEY_LIST = 0;                                 // Warm up specific keys
+  PATTERN_BASED = 1;                            // Warm up based on key patterns
+  PREDICTIVE = 2;                               // Predictive warmup based on access patterns
+  POPULAR_KEYS = 3;                             // Warm up most popular keys
+}
+
+// KeyListWarmup specifies exact keys to warm up
+message KeyListWarmup {
+  repeated string keys = 1;                     // Keys to warm up
+}
+
+// PatternWarmup specifies pattern-based warmup
+message PatternWarmup {
+  repeated string prefixes = 1;                 // Key prefixes to warm up
+  uint32 max_keys_per_prefix = 2;               // Maximum keys per prefix
+}
+
+// PredictiveWarmup configures ML-based predictive warmup
+message PredictiveWarmup {
+  uint32 prediction_window_minutes = 1;        // Prediction time window
+  double confidence_threshold = 2;              // Minimum confidence for predictions
+  uint32 max_predictions = 3;                  // Maximum number of predictions
+}
+
+// WarmupOptions configures warmup behavior
+message WarmupOptions {
+  repeated CacheLevel target_levels = 1;        // Which cache levels to warm up
+  uint32 concurrency = 2;                      // Number of concurrent warmup operations
+  bool force_refresh = 3;                       // Whether to force refresh from L3
+  uint32 batch_size = 4;                        // Batch size for warmup operations
+}
+
+// WarmupCacheResponse returns warmup results
+message WarmupCacheResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  WarmupResult result = 2;                      // Warmup result
+}
+
+// WarmupResult contains cache warmup results
+message WarmupResult {
+  bool success = 2;                             // Whether warmup succeeded
+  string error = 3;                             // Error message if warmup failed
+  uint32 keys_warmed = 4;                       // Number of keys warmed up
+  uint32 keys_failed = 5;                       // Number of keys that failed to warm
+  uint64 warmup_time_ms = 6;                    // Total warmup time
+  repeated CacheLevel levels_warmed = 7;        // Cache levels that were warmed
+  uint64 data_loaded_bytes = 8;                 // Total data loaded during warmup
+}
+
+// PurgeCacheRequest requests cache purging
+message PurgeCacheRequest {
+  yao.common.RequestMetadata metadata = 1;
+  PurgeStrategy strategy = 2;                   // Purge strategy
+  PurgeOptions options = 3;                     // Purge options
+}
+
+// PurgeStrategy defines different cache purge strategies
+message PurgeStrategy {
+  PurgeType type = 1;                           // Purge type
+  oneof strategy_config {
+    AgePurge age_based = 2;                     // Age-based purging
+    SizePurge size_based = 3;                   // Size-based purging
+    PatternPurge pattern_based = 4;             // Pattern-based purging
+  }
+}
+
+// PurgeType represents different purge strategies
+enum PurgeType {
+  ALL = 0;                                      // Purge all cache data
+  AGE_BASED = 1;                                // Purge based on age
+  SIZE_BASED = 2;                               // Purge based on size limits
+  PATTERN_BASED = 3;                            // Purge based on key patterns
+  LRU = 4;                                      // Purge least recently used
+}
+
+// AgePurge configures age-based purging
+message AgePurge {
+  uint64 max_age_seconds = 1;                   // Maximum age in seconds
+}
+
+// SizePurge configures size-based purging
+message SizePurge {
+  uint64 max_size_bytes = 1;                    // Maximum cache size in bytes
+  uint32 max_entries = 2;                       // Maximum number of entries
+}
+
+// PatternPurge configures pattern-based purging
+message PatternPurge {
+  repeated string prefixes = 1;                 // Key prefixes to purge
+  repeated string patterns = 2;                 // Regex patterns to match
+}
+
+// PurgeOptions configures purge behavior
+message PurgeOptions {
+  repeated CacheLevel target_levels = 1;        // Which cache levels to purge
+  bool force = 2;                               // Whether to force purge (ignore safety checks)
+  bool async = 3;                               // Whether to perform purge asynchronously
+}
+
+// PurgeCacheResponse returns purge results
+message PurgeCacheResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  PurgeResult result = 2;                       // Purge result
+}
+
+// PurgeResult contains cache purge results
+message PurgeResult {
+  bool success = 1;                             // Whether purge succeeded
+  string error = 2;                             // Error message if purge failed
+  uint32 keys_purged = 3;                       // Number of keys purged
+  uint64 bytes_freed = 4;                       // Bytes freed by purge
+  uint64 purge_time_ms = 5;                     // Total purge time
+  repeated CacheLevel levels_purged = 6;        // Cache levels that were purged
+}
+
+// WatchCacheRequest requests cache event subscription
+message WatchCacheRequest {
+  yao.common.RequestMetadata metadata = 1;
+  repeated CacheEventType event_types = 2;     // Specific event types to watch
+  repeated CacheLevel levels = 3;               // Specific cache levels to watch
+}
+
+// CacheEvent represents cache-related events
+message CacheEvent {
+  string subscription_id = 1;                   // Unique subscription identifier
+  CacheEventType type = 2;                      // Event type
+  CacheLevel level = 3;                         // Cache level where event occurred
+  uint64 timestamp = 4;                         // Unix timestamp of event
+  oneof event_data {
+    CacheAccessEvent access = 5;
+    CacheInvalidationEvent invalidation = 6;
+    CacheErrorEvent error = 7;
+  }
+}
+
+// CacheEventType represents different cache event types
+enum CacheEventType {
+  CACHE_HIT = 0;                                // Cache hit occurred
+  CACHE_MISS = 1;                               // Cache miss occurred  
+  CACHE_PUT = 2;                                // Data put into cache
+  CACHE_EVICTION = 3;                           // Cache eviction occurred
+  CACHE_INVALIDATION = 4;                       // Cache invalidation occurred
+  CACHE_ERROR = 5;                              // Cache error occurred
+  CACHE_WARMUP = 6;                             // Cache warmup event
+  CACHE_PURGE = 7;                              // Cache purge event
+}
+
+// CacheAccessEvent contains cache access event data
+message CacheAccessEvent {
+  string key = 1;                               // Cache key accessed
+  bool hit = 2;                                 // Whether it was a hit or miss
+  uint64 access_time_ns = 3;                    // Access time in nanoseconds
+  uint32 value_size_bytes = 4;                  // Size of accessed value
+}
+
+// CacheInvalidationEvent contains cache invalidation event data
+message CacheInvalidationEvent {
+  repeated string keys = 1;                     // Keys that were invalidated
+  string reason = 2;                            // Reason for invalidation
+  bool broadcast = 3;                           // Whether invalidation was broadcast
+}
+
+// CacheErrorEvent contains cache error event data  
+message CacheErrorEvent {
+  string error_type = 1;                        // Type of error
+  string error_message = 2;                     // Error message
+  string affected_key = 3;                      // Key affected by error (if applicable)
+  bool recoverable = 4;                         // Whether error is recoverable
+} 

@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+package yao.portal;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/portal;portal";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// StateService provides blockchain state query capabilities
+service StateService {
+  // GetAccount retrieves account information including balance, nonce, and code
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/accounts/{address}"
+    };
+  }
+  
+  // GetBalance retrieves the balance of a specific account
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/accounts/{address}/balance"
+    };
+  }
+  
+  // GetNonce retrieves the nonce of a specific account
+  rpc GetNonce(GetNonceRequest) returns (GetNonceResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/accounts/{address}/nonce"
+    };
+  }
+  
+  // GetCode retrieves the contract code of a specific address
+  rpc GetCode(GetCodeRequest) returns (GetCodeResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/accounts/{address}/code"
+    };
+  }
+  
+  // GetStorageAt retrieves a value from contract storage
+  rpc GetStorageAt(GetStorageAtRequest) returns (GetStorageAtResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/accounts/{address}/storage/{key}"
+    };
+  }
+  
+  // EstimateGas estimates the gas required for a transaction
+  rpc EstimateGas(EstimateGasRequest) returns (EstimateGasResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/transactions/estimate-gas"
+      body: "*"
+    };
+  }
+  
+  // Call executes a contract call without creating a transaction
+  rpc Call(CallRequest) returns (CallResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/transactions/call"
+      body: "*"
+    };
+  }
+}
+
+// GetAccountRequest requests account information
+message GetAccountRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                 // Account address (0x-prefixed hex)
+  oneof block_identifier {
+    uint64 block_number = 3;          // Specific block number
+    string block_hash = 4;            // Specific block hash
+    string block_tag = 5;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// GetAccountResponse returns account information
+message GetAccountResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Account account = 2;
+}
+
+// GetBalanceRequest requests account balance
+message GetBalanceRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                 // Account address
+  oneof block_identifier {
+    uint64 block_number = 3;          // Specific block number
+    string block_hash = 4;            // Specific block hash
+    string block_tag = 5;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// GetBalanceResponse returns account balance
+message GetBalanceResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  string balance = 2;                 // Balance in wei (decimal string)
+}
+
+// GetNonceRequest requests account nonce
+message GetNonceRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                 // Account address
+  oneof block_identifier {
+    uint64 block_number = 3;          // Specific block number
+    string block_hash = 4;            // Specific block hash
+    string block_tag = 5;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// GetNonceResponse returns account nonce
+message GetNonceResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  uint64 nonce = 2;                   // Account nonce
+}
+
+// GetCodeRequest requests contract code
+message GetCodeRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                 // Contract address
+  oneof block_identifier {
+    uint64 block_number = 3;          // Specific block number
+    string block_hash = 4;            // Specific block hash
+    string block_tag = 5;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// GetCodeResponse returns contract code
+message GetCodeResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bytes code = 2;                     // Contract bytecode
+}
+
+// GetStorageAtRequest requests contract storage value
+message GetStorageAtRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                 // Contract address
+  string key = 3;                     // Storage key (0x-prefixed hex)
+  oneof block_identifier {
+    uint64 block_number = 4;          // Specific block number
+    string block_hash = 5;            // Specific block hash
+    string block_tag = 6;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// GetStorageAtResponse returns contract storage value
+message GetStorageAtResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  string value = 2;                   // Storage value (0x-prefixed hex)
+}
+
+// EstimateGasRequest requests gas estimation
+message EstimateGasRequest {
+  yao.common.RequestMetadata metadata = 1;
+  CallData call = 2;                  // Transaction call data
+  oneof block_identifier {
+    uint64 block_number = 3;          // Specific block number
+    string block_hash = 4;            // Specific block hash
+    string block_tag = 5;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// EstimateGasResponse returns gas estimation
+message EstimateGasResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  uint64 gas_estimate = 2;            // Estimated gas required
+}
+
+// CallRequest executes a contract call
+message CallRequest {
+  yao.common.RequestMetadata metadata = 1;
+  CallData call = 2;                  // Transaction call data
+  oneof block_identifier {
+    uint64 block_number = 3;          // Specific block number
+    string block_hash = 4;            // Specific block hash
+    string block_tag = 5;             // Block tag (latest, earliest, pending)
+  }
+}
+
+// CallResponse returns call execution result
+message CallResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  bytes return_data = 2;              // Call return data
+}
+
+// CallData represents transaction call parameters
+message CallData {
+  string from = 1;                    // Sender address (optional)
+  string to = 2;                      // Recipient address
+  string value = 3;                   // Transfer value in wei (optional)
+  string gas = 4;                     // Gas limit (optional)
+  string gas_price = 5;               // Gas price (optional)
+  bytes data = 6;                     // Transaction data (optional)
+} 

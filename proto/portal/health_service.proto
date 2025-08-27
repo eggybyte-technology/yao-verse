@@ -1,0 +1,219 @@
+syntax = "proto3";
+
+package yao.portal;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/portal;portal";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// HealthService provides health check and service discovery capabilities
+service HealthService {
+  // Check performs a health check of the service
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/health"
+    };
+  }
+  
+  // CheckDeep performs a deep health check including dependencies
+  rpc CheckDeep(DeepHealthCheckRequest) returns (DeepHealthCheckResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/health/deep"
+    };
+  }
+  
+  // GetVersion returns service version information
+  rpc GetVersion(VersionRequest) returns (VersionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/version"
+    };
+  }
+  
+  // GetServiceInfo returns detailed service information
+  rpc GetServiceInfo(ServiceInfoRequest) returns (ServiceInfoResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/service-info"
+    };
+  }
+  
+  // GetMetrics returns service metrics
+  rpc GetMetrics(MetricsRequest) returns (MetricsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/metrics"
+    };
+  }
+  
+  // ListServices returns list of available services in the cluster
+  rpc ListServices(ListServicesRequest) returns (ListServicesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/services"
+    };
+  }
+  
+  // WatchHealth provides streaming health updates
+  rpc WatchHealth(WatchHealthRequest) returns (stream HealthUpdate);
+}
+
+// HealthCheckRequest requests basic health check
+message HealthCheckRequest {
+  yao.common.RequestMetadata metadata = 1;
+}
+
+// HealthCheckResponse returns basic health status
+message HealthCheckResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.HealthStatus status = 2;
+}
+
+// DeepHealthCheckRequest requests comprehensive health check
+message DeepHealthCheckRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bool include_dependencies = 2;      // Whether to check dependency health
+  repeated string components = 3;     // Specific components to check (empty for all)
+}
+
+// DeepHealthCheckResponse returns comprehensive health information
+message DeepHealthCheckResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.HealthStatus overall_status = 2;
+  map<string, ComponentHealth> components = 3; // Health status per component
+  repeated DependencyHealth dependencies = 4;  // Dependency health status
+}
+
+// ComponentHealth represents health status of a service component
+message ComponentHealth {
+  yao.common.HealthStatus status = 1;
+  uint64 uptime_seconds = 2;          // Component uptime in seconds
+  string version = 3;                 // Component version
+  map<string, string> details = 4;    // Additional health details
+}
+
+// DependencyHealth represents health status of a service dependency
+message DependencyHealth {
+  string name = 1;                    // Dependency name
+  string type = 2;                    // Dependency type (database, cache, queue, etc.)
+  string endpoint = 3;                // Dependency endpoint
+  yao.common.HealthStatus status = 4;
+  uint64 response_time_ms = 5;        // Response time in milliseconds
+  string error = 6;                   // Error message if unhealthy
+}
+
+// VersionRequest requests version information
+message VersionRequest {
+  yao.common.RequestMetadata metadata = 1;
+}
+
+// VersionResponse returns version information
+message VersionResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  string service_name = 2;            // Service name
+  string version = 3;                 // Service version
+  string build_hash = 4;              // Git commit hash
+  string build_date = 5;              // Build timestamp
+  string go_version = 6;              // Go version used for build
+  map<string, string> additional_info = 7; // Additional version info
+}
+
+// ServiceInfoRequest requests detailed service information
+message ServiceInfoRequest {
+  yao.common.RequestMetadata metadata = 1;
+}
+
+// ServiceInfoResponse returns detailed service information
+message ServiceInfoResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  string service_name = 2;            // Service name
+  string instance_id = 3;             // Unique instance identifier
+  string node_name = 4;               // Kubernetes node name
+  string pod_name = 5;                // Kubernetes pod name
+  string namespace = 6;               // Kubernetes namespace
+  string cluster = 7;                 // Kubernetes cluster name
+  ServiceConfiguration config = 8;    // Service configuration
+  ServiceCapabilities capabilities = 9; // Service capabilities
+}
+
+// ServiceConfiguration represents service configuration
+message ServiceConfiguration {
+  string log_level = 1;               // Logging level
+  bool debug_mode = 2;                // Debug mode enabled
+  uint32 port = 3;                    // Service port
+  uint32 grpc_port = 4;               // gRPC port
+  uint32 max_connections = 5;         // Maximum concurrent connections
+  uint32 read_timeout_seconds = 6;    // Read timeout
+  uint32 write_timeout_seconds = 7;   // Write timeout
+  map<string, string> custom_config = 8; // Additional configuration
+}
+
+// ServiceCapabilities represents service capabilities
+message ServiceCapabilities {
+  repeated string supported_apis = 1;  // List of supported API methods
+  repeated string features = 2;        // List of enabled features
+  repeated string protocols = 3;       // Supported protocols (HTTP, gRPC, WebSocket)
+  bool streaming_support = 4;          // Streaming support enabled
+  bool tls_enabled = 5;               // TLS/SSL enabled
+  bool authentication_required = 6;    // Authentication required
+}
+
+// MetricsRequest requests service metrics
+message MetricsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string format = 2;                  // Metrics format (prometheus, json)
+  repeated string metric_names = 3;   // Specific metrics to return (empty for all)
+}
+
+// MetricsResponse returns service metrics
+message MetricsResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  string format = 2;                  // Metrics format
+  bytes metrics_data = 3;             // Serialized metrics data
+  map<string, MetricValue> metrics = 4; // Parsed metrics (if format is json)
+}
+
+// MetricValue represents a single metric value
+message MetricValue {
+  string name = 1;                    // Metric name
+  string type = 2;                    // Metric type (counter, gauge, histogram)
+  double value = 3;                   // Metric value
+  map<string, string> labels = 4;     // Metric labels
+  string help = 5;                    // Metric description
+}
+
+// ListServicesRequest requests list of available services
+message ListServicesRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string service_type = 2;            // Filter by service type
+  string namespace = 3;               // Filter by namespace
+  bool include_health = 4;            // Include health status in response
+}
+
+// ListServicesResponse returns list of available services
+message ListServicesResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  repeated ServiceInfo services = 2;
+}
+
+// ServiceInfo represents information about a service instance
+message ServiceInfo {
+  string service_name = 1;            // Service name
+  string instance_id = 2;             // Instance identifier
+  string endpoint = 3;                // Service endpoint
+  string version = 4;                 // Service version
+  yao.common.HealthStatus health = 5; // Health status (if requested)
+  map<string, string> metadata = 6;   // Additional service metadata
+}
+
+// WatchHealthRequest requests streaming health updates
+message WatchHealthRequest {
+  yao.common.RequestMetadata metadata = 1;
+  uint32 interval_seconds = 2;        // Health check interval in seconds
+  repeated string components = 3;     // Components to watch (empty for all)
+}
+
+// HealthUpdate streams health status changes
+message HealthUpdate {
+  string subscription_id = 1;         // Unique subscription identifier
+  string component = 2;               // Component name
+  yao.common.HealthStatus status = 3; // Current health status
+  string change_reason = 4;           // Reason for status change
+} 

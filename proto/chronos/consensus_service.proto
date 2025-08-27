@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package yao.chronos;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/chronos;chronos";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// ConsensusService provides consensus state query capabilities
+service ConsensusService {
+  // GetConsensusStatus returns current consensus status
+  rpc GetConsensusStatus(GetConsensusStatusRequest) returns (GetConsensusStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/consensus/status"
+    };
+  }
+  
+  // GetLeaderInfo returns current leader information
+  rpc GetLeaderInfo(GetLeaderInfoRequest) returns (GetLeaderInfoResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/consensus/leader"
+    };
+  }
+  
+  // GetValidators returns list of active validators
+  rpc GetValidators(GetValidatorsRequest) returns (GetValidatorsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/consensus/validators"
+    };
+  }
+  
+  // WatchConsensusEvents subscribes to consensus events
+  rpc WatchConsensusEvents(WatchConsensusEventsRequest) returns (stream ConsensusEvent);
+}
+
+// GetConsensusStatusRequest requests consensus status
+message GetConsensusStatusRequest {
+  yao.common.RequestMetadata metadata = 1;
+}
+
+// GetConsensusStatusResponse returns consensus status
+message GetConsensusStatusResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  ConsensusStatus status = 2;         // Current consensus status
+}
+
+// ConsensusStatus represents the current state of consensus
+message ConsensusStatus {
+  bool is_healthy = 1;                // Whether consensus is healthy
+  string current_leader = 2;          // Current leader instance ID
+  uint64 leader_term = 3;             // Current leadership term
+  uint64 last_block_height = 4;       // Last finalized block height
+  uint64 last_block_time = 5;         // Unix timestamp of last block
+  uint32 active_validators = 6;       // Number of active validators
+  ConsensusState state = 7;           // Current consensus state
+}
+
+// ConsensusState represents different consensus states
+enum ConsensusState {
+  INITIALIZING = 0;                   // Consensus is initializing
+  ACTIVE = 1;                         // Consensus is active and producing blocks
+  SYNCING = 2;                        // Node is syncing with network
+  MAINTENANCE = 3;                    // In maintenance mode
+  ERROR = 4;                          // Error state
+}
+
+// GetLeaderInfoRequest requests leader information
+message GetLeaderInfoRequest {
+  yao.common.RequestMetadata metadata = 1;
+}
+
+// GetLeaderInfoResponse returns leader information
+message GetLeaderInfoResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  LeaderInfo leader = 2;              // Current leader information
+}
+
+// LeaderInfo contains information about the current leader
+message LeaderInfo {
+  string instance_id = 1;             // Leader instance identifier
+  string node_name = 2;               // Kubernetes node name
+  string pod_name = 3;                // Kubernetes pod name
+  uint64 elected_at = 4;              // Unix timestamp when elected
+  uint64 term = 5;                    // Leadership term number
+  uint64 blocks_produced = 6;         // Number of blocks produced in this term
+  LeadershipHealth health = 7;        // Leadership health status
+}
+
+// LeadershipHealth represents leader health status
+message LeadershipHealth {
+  bool is_healthy = 1;                // Whether leader is healthy
+  uint64 last_heartbeat = 2;          // Unix timestamp of last heartbeat
+  uint64 missed_heartbeats = 3;       // Number of consecutive missed heartbeats
+  double block_production_rate = 4;   // Blocks per second production rate
+}
+
+// GetValidatorsRequest requests validator list
+message GetValidatorsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bool include_inactive = 2;          // Whether to include inactive validators
+}
+
+// GetValidatorsResponse returns validator list
+message GetValidatorsResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  repeated ValidatorInfo validators = 2;
+}
+
+// ValidatorInfo contains information about a validator
+message ValidatorInfo {
+  string instance_id = 1;             // Validator instance identifier
+  string node_name = 2;               // Kubernetes node name
+  string pod_name = 3;                // Kubernetes pod name
+  ValidatorStatus status = 4;         // Validator status
+  uint64 last_seen = 5;               // Unix timestamp when last seen
+  uint64 blocks_validated = 6;        // Number of blocks validated
+  double uptime_percentage = 7;       // Uptime percentage (0.0-100.0)
+}
+
+// ValidatorStatus represents validator status
+enum ValidatorStatus {
+  ACTIVE = 0;                         // Validator is active
+  INACTIVE = 1;                       // Validator is inactive
+  CANDIDATE = 2;                      // Validator is a candidate
+  SUSPENDED = 3;                      // Validator is suspended
+}
+
+// WatchConsensusEventsRequest requests consensus event subscription
+message WatchConsensusEventsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  repeated ConsensusEventType event_types = 2; // Specific event types to watch
+}
+
+// ConsensusEvent represents consensus-related events
+message ConsensusEvent {
+  string subscription_id = 1;         // Unique subscription identifier
+  ConsensusEventType type = 2;        // Event type
+  string instance_id = 3;             // Instance that triggered the event
+  uint64 timestamp = 4;               // Unix timestamp of event
+  map<string, string> details = 5;    // Additional event details
+}
+
+// ConsensusEventType represents different consensus event types
+enum ConsensusEventType {
+  LEADER_ELECTED = 0;                 // New leader elected
+  LEADER_LOST = 1;                    // Leader connection lost
+  VALIDATOR_JOINED = 2;               // New validator joined
+  VALIDATOR_LEFT = 3;                 // Validator left the network
+  BLOCK_FINALIZED = 4;                // Block finalized by consensus
+  CONSENSUS_ERROR = 5;                // Consensus error occurred
+} 

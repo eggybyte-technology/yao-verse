@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package yao.chronos;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/chronos;chronos";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// SequencerService provides transaction ordering and block building capabilities
+service SequencerService {
+  // SubmitTransaction submits a raw transaction to the sequencer
+  rpc SubmitTransaction(SubmitTransactionRequest) returns (SubmitTransactionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/transactions"
+      body: "*"
+    };
+  }
+  
+  // GetPendingTransactions retrieves pending transactions in the mempool
+  rpc GetPendingTransactions(GetPendingTransactionsRequest) returns (GetPendingTransactionsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/transactions/pending"
+    };
+  }
+  
+  // GetBlockTemplate retrieves the current block template being built
+  rpc GetBlockTemplate(GetBlockTemplateRequest) returns (GetBlockTemplateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/blocks/template"
+    };
+  }
+}
+
+// SubmitTransactionRequest submits a single transaction
+message SubmitTransactionRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bytes raw_transaction = 2;          // RLP-encoded signed transaction
+}
+
+// SubmitTransactionResponse returns transaction submission result
+message SubmitTransactionResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  string transaction_hash = 2;        // Transaction hash
+}
+
+// GetPendingTransactionsRequest requests pending transactions
+message GetPendingTransactionsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  uint32 limit = 2;                   // Maximum number of transactions to return
+}
+
+// GetPendingTransactionsResponse returns pending transactions
+message GetPendingTransactionsResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  repeated yao.common.Transaction transactions = 2;
+}
+
+// GetBlockTemplateRequest requests current block template
+message GetBlockTemplateRequest {
+  yao.common.RequestMetadata metadata = 1;
+}
+
+// GetBlockTemplateResponse returns current block template
+message GetBlockTemplateResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Block template = 2;      // Current block template
+} 

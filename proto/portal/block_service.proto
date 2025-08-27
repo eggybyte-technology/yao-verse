@@ -1,0 +1,237 @@
+syntax = "proto3";
+
+package yao.portal;
+
+option go_package = "github.com/eggybyte/yao-verse/gen/proto/portal;portal";
+
+import "google/api/annotations.proto";
+import "common/types.proto";
+
+// BlockService provides blockchain block and transaction query capabilities
+service BlockService {
+  // GetBlockByNumber retrieves a block by its number
+  rpc GetBlockByNumber(GetBlockByNumberRequest) returns (GetBlockByNumberResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/blocks/{block_number}"
+    };
+  }
+  
+  // GetBlockByHash retrieves a block by its hash
+  rpc GetBlockByHash(GetBlockByHashRequest) returns (GetBlockByHashResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/blocks/hash/{block_hash}"
+    };
+  }
+  
+  // GetLatestBlock retrieves the latest block
+  rpc GetLatestBlock(GetLatestBlockRequest) returns (GetLatestBlockResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/blocks/latest"
+    };
+  }
+  
+  // GetBlockTransactionCount returns the number of transactions in a block
+  rpc GetBlockTransactionCount(GetBlockTransactionCountRequest) returns (GetBlockTransactionCountResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/blocks/{block_identifier}/transaction-count"
+    };
+  }
+  
+  // GetTransaction retrieves a transaction by its hash
+  rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/transactions/{transaction_hash}"
+    };
+  }
+  
+  // GetTransactionReceipt retrieves a transaction receipt by transaction hash
+  rpc GetTransactionReceipt(GetTransactionReceiptRequest) returns (GetTransactionReceiptResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/transactions/{transaction_hash}/receipt"
+    };
+  }
+  
+  // GetTransactionsByAccount retrieves transactions involving a specific account
+  rpc GetTransactionsByAccount(GetTransactionsByAccountRequest) returns (GetTransactionsByAccountResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/accounts/{address}/transactions"
+    };
+  }
+  
+  // GetLogs retrieves event logs based on filter criteria
+  rpc GetLogs(GetLogsRequest) returns (GetLogsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/logs/query"
+      body: "*"
+    };
+  }
+  
+  // SubscribeNewBlocks subscribes to new block notifications (streaming)
+  rpc SubscribeNewBlocks(SubscribeNewBlocksRequest) returns (stream NewBlockNotification);
+  
+  // SubscribeLogs subscribes to log events matching filter criteria (streaming)
+  rpc SubscribeLogs(SubscribeLogsRequest) returns (stream LogNotification);
+}
+
+// GetBlockByNumberRequest requests a block by number
+message GetBlockByNumberRequest {
+  yao.common.RequestMetadata metadata = 1;
+  oneof block_identifier {
+    uint64 block_number = 2;          // Specific block number
+    string block_tag = 3;             // Block tag (latest, earliest, pending)
+  }
+  bool include_transactions = 4;      // Whether to include full transaction objects
+}
+
+// GetBlockByNumberResponse returns block information
+message GetBlockByNumberResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Block block = 2;
+}
+
+// GetBlockByHashRequest requests a block by hash
+message GetBlockByHashRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string block_hash = 2;              // Block hash (0x-prefixed hex)
+  bool include_transactions = 3;      // Whether to include full transaction objects
+}
+
+// GetBlockByHashResponse returns block information
+message GetBlockByHashResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Block block = 2;
+}
+
+// GetLatestBlockRequest requests the latest block
+message GetLatestBlockRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bool include_transactions = 2;      // Whether to include full transaction objects
+}
+
+// GetLatestBlockResponse returns the latest block
+message GetLatestBlockResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Block block = 2;
+}
+
+// GetBlockTransactionCountRequest requests transaction count in a block
+message GetBlockTransactionCountRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string block_identifier = 2;       // Block number, hash, or tag
+}
+
+// GetBlockTransactionCountResponse returns transaction count
+message GetBlockTransactionCountResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  uint32 transaction_count = 2;       // Number of transactions in block
+}
+
+// GetTransactionRequest requests a transaction by hash
+message GetTransactionRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string transaction_hash = 2;        // Transaction hash (0x-prefixed hex)
+}
+
+// GetTransactionResponse returns transaction information
+message GetTransactionResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.Transaction transaction = 2;
+}
+
+// GetTransactionReceiptRequest requests a transaction receipt
+message GetTransactionReceiptRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string transaction_hash = 2;        // Transaction hash (0x-prefixed hex)
+}
+
+// GetTransactionReceiptResponse returns transaction receipt
+message GetTransactionReceiptResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  yao.common.TransactionReceipt receipt = 2;
+}
+
+// GetTransactionsByAccountRequest requests transactions for an account
+message GetTransactionsByAccountRequest {
+  yao.common.RequestMetadata metadata = 1;
+  string address = 2;                 // Account address
+  uint64 from_block = 3;              // Starting block number (optional)
+  uint64 to_block = 4;                // Ending block number (optional)
+  uint32 page = 5;                    // Page number for pagination
+  uint32 page_size = 6;               // Number of transactions per page
+  TransactionDirection direction = 7;  // Transaction direction filter
+}
+
+// TransactionDirection specifies transaction direction filter
+enum TransactionDirection {
+  ALL = 0;                            // All transactions
+  SENT = 1;                           // Only sent transactions (from address)
+  RECEIVED = 2;                       // Only received transactions (to address)
+}
+
+// GetTransactionsByAccountResponse returns transactions for an account
+message GetTransactionsByAccountResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  repeated yao.common.Transaction transactions = 2;
+  uint32 total_count = 3;             // Total number of matching transactions
+  uint32 page = 4;                    // Current page number
+  uint32 page_size = 5;               // Transactions per page
+}
+
+// GetLogsRequest requests event logs with filter criteria
+message GetLogsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  LogFilter filter = 2;               // Log filter criteria
+}
+
+// LogFilter specifies criteria for log filtering
+message LogFilter {
+  repeated string addresses = 1;      // Contract addresses to filter by
+  repeated string topics = 2;         // Topics to filter by (supports null placeholders)
+  oneof block_range {
+    BlockRange range = 3;             // Block range
+    string block_hash = 4;            // Specific block hash
+  }
+  uint32 limit = 5;                   // Maximum number of logs to return
+}
+
+// BlockRange specifies a range of blocks
+message BlockRange {
+  oneof from_block {
+    uint64 from_number = 1;           // Starting block number
+    string from_tag = 2;              // Starting block tag
+  }
+  oneof to_block {
+    uint64 to_number = 3;             // Ending block number
+    string to_tag = 4;                // Ending block tag
+  }
+}
+
+// GetLogsResponse returns filtered event logs
+message GetLogsResponse {
+  yao.common.ResponseMetadata metadata = 1;
+  repeated yao.common.Log logs = 2;
+}
+
+// SubscribeNewBlocksRequest requests new block subscription
+message SubscribeNewBlocksRequest {
+  yao.common.RequestMetadata metadata = 1;
+  bool include_transactions = 2;      // Whether to include full transaction objects
+}
+
+// NewBlockNotification notifies about new blocks
+message NewBlockNotification {
+  string subscription_id = 1;         // Unique subscription identifier
+  yao.common.Block block = 2;         // New block information
+}
+
+// SubscribeLogsRequest requests log event subscription
+message SubscribeLogsRequest {
+  yao.common.RequestMetadata metadata = 1;
+  LogFilter filter = 2;               // Log filter criteria
+}
+
+// LogNotification notifies about new log events
+message LogNotification {
+  string subscription_id = 1;         // Unique subscription identifier
+  yao.common.Log log = 2;             // New log event
+} 
