@@ -6,8 +6,8 @@ require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/dgraph-io/ristretto/v2 v2.3.0
 	github.com/ethereum/go-ethereum v1.16.2
-	github.com/redis/go-redis/v9 v9.0.5
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/redis/go-redis/v9 v9.0.5
 )
 
 require (

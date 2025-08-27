@@ -93,20 +93,20 @@ type StateDB interface {
 }
 
 // CacheManager defines the interface for managing multi-level cache
-type CacheManager interface {
+type OracleCacheManager interface {
 	// L1Cache operations (local in-memory cache)
 	GetFromL1(key string) (interface{}, bool)
 	SetToL1(key string, value interface{}) error
 	DeleteFromL1(key string) error
 	ClearL1() error
-	GetL1Stats() *CacheStats
+	GetL1Stats() *OracleCacheStats
 
 	// L2Cache operations (Redis cluster)
 	GetFromL2(ctx context.Context, key string) (interface{}, error)
 	SetToL2(ctx context.Context, key string, value interface{}) error
 	DeleteFromL2(ctx context.Context, key string) error
 	ClearL2(ctx context.Context) error
-	GetL2Stats() *CacheStats
+	GetL2Stats() *OracleCacheStats
 
 	// Cache invalidation
 	InvalidateKeys(ctx context.Context, keys []*types.CacheKey) error
@@ -119,7 +119,7 @@ type CacheManager interface {
 }
 
 // CacheStats represents cache statistics
-type CacheStats struct {
+type OracleCacheStats struct {
 	Hits     uint64  `json:"hits"`
 	Misses   uint64  `json:"misses"`
 	HitRatio float64 `json:"hitRatio"`
@@ -191,7 +191,7 @@ type Transaction interface {
 // YaoOracle defines the main interface for the embedded state library
 type YaoOracle interface {
 	StateDB
-	CacheManager
+	OracleCacheManager
 
 	// Initialize initializes the oracle with configuration
 	Initialize(ctx context.Context, config *OracleConfig) error
@@ -261,8 +261,8 @@ type OracleConfig struct {
 // OracleMetrics defines metrics for YaoOracle performance monitoring
 type OracleMetrics struct {
 	// Cache metrics
-	L1Stats *CacheStats `json:"l1Stats"`
-	L2Stats *CacheStats `json:"l2Stats"`
+	L1Stats *OracleCacheStats `json:"l1Stats"`
+	L2Stats *OracleCacheStats `json:"l2Stats"`
 
 	// Performance metrics
 	TotalRequests       uint64 `json:"totalRequests"`

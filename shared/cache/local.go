@@ -14,7 +14,7 @@ import (
 type LocalCache struct {
 	cache  *ristretto.Cache[string, interface{}]
 	config *LocalCacheConfig
-	stats  *interfaces.CacheStats
+	stats  *interfaces.OracleCacheStats
 	mutex  sync.RWMutex
 }
 
@@ -41,7 +41,7 @@ func NewLocalCache(config *LocalCacheConfig) (*LocalCache, error) {
 	return &LocalCache{
 		cache:  cache,
 		config: config,
-		stats:  &interfaces.CacheStats{},
+		stats:  &interfaces.OracleCacheStats{},
 	}, nil
 }
 
@@ -241,7 +241,7 @@ func (l *LocalCache) Clear() {
 }
 
 // GetStats returns cache statistics
-func (l *LocalCache) GetStats() *interfaces.CacheStats {
+func (l *LocalCache) GetStats() *interfaces.OracleCacheStats {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
@@ -252,7 +252,7 @@ func (l *LocalCache) GetStats() *interfaces.CacheStats {
 		hitRatio = float64(l.stats.Hits) / float64(total)
 	}
 
-	return &interfaces.CacheStats{
+	return &interfaces.OracleCacheStats{
 		Hits:     l.stats.Hits,
 		Misses:   l.stats.Misses,
 		HitRatio: hitRatio,

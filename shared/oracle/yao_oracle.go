@@ -56,8 +56,8 @@ func NewYaoOracle() (*YaoOracleImpl, error) {
 		snapshots:  make(map[int]StateSnapshot),
 		nextSnapID: 1,
 		metrics: &interfaces.OracleMetrics{
-			L1Stats:              &interfaces.CacheStats{},
-			L2Stats:              &interfaces.CacheStats{},
+			L1Stats:              &interfaces.OracleCacheStats{},
+			L2Stats:              &interfaces.OracleCacheStats{},
 			TotalRequests:        0,
 			AverageResponseTime:  0,
 			L3Queries:            0,
@@ -528,7 +528,7 @@ func (o *YaoOracleImpl) GetFromL1(key string) (interface{}, bool)    { return ni
 func (o *YaoOracleImpl) SetToL1(key string, value interface{}) error { return nil }
 func (o *YaoOracleImpl) DeleteFromL1(key string) error               { return nil }
 func (o *YaoOracleImpl) ClearL1() error                              { o.l1Cache.Clear(); return nil }
-func (o *YaoOracleImpl) GetL1Stats() *interfaces.CacheStats          { return o.l1Cache.GetStats() }
+func (o *YaoOracleImpl) GetL1Stats() *interfaces.OracleCacheStats    { return o.l1Cache.GetStats() }
 
 func (o *YaoOracleImpl) GetFromL2(ctx context.Context, key string) (interface{}, error) {
 	return nil, nil
@@ -536,7 +536,7 @@ func (o *YaoOracleImpl) GetFromL2(ctx context.Context, key string) (interface{},
 func (o *YaoOracleImpl) SetToL2(ctx context.Context, key string, value interface{}) error { return nil }
 func (o *YaoOracleImpl) DeleteFromL2(ctx context.Context, key string) error               { return nil }
 func (o *YaoOracleImpl) ClearL2(ctx context.Context) error                                { return o.l2Cache.Clear(ctx) }
-func (o *YaoOracleImpl) GetL2Stats() *interfaces.CacheStats                               { return o.l2Cache.GetStats() }
+func (o *YaoOracleImpl) GetL2Stats() *interfaces.OracleCacheStats                         { return o.l2Cache.GetStats() }
 
 func (o *YaoOracleImpl) WarmupCache(ctx context.Context) error { return nil }
 func (o *YaoOracleImpl) HealthCheck(ctx context.Context) error { return nil }

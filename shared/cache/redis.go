@@ -16,7 +16,7 @@ import (
 type RedisCache struct {
 	client *redis.ClusterClient
 	config *RedisConfig
-	stats  *interfaces.CacheStats
+	stats  *interfaces.OracleCacheStats
 }
 
 // RedisConfig defines configuration for Redis cluster cache
@@ -46,7 +46,7 @@ func NewRedisCache(config *RedisConfig) (*RedisCache, error) {
 	return &RedisCache{
 		client: client,
 		config: config,
-		stats:  &interfaces.CacheStats{},
+		stats:  &interfaces.OracleCacheStats{},
 	}, nil
 }
 
@@ -256,7 +256,7 @@ func (r *RedisCache) Clear(ctx context.Context) error {
 }
 
 // GetStats returns cache statistics
-func (r *RedisCache) GetStats() *interfaces.CacheStats {
+func (r *RedisCache) GetStats() *interfaces.OracleCacheStats {
 	r.updateStats()
 	return r.stats
 }

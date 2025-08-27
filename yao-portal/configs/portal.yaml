@@ -1,0 +1,120 @@
+# YaoPortal Configuration File
+# Node identity configuration
+nodeId: "portal-node-1"
+nodeName: "YaoPortal Node 1"
+chainId: 1337
+
+# Server binding configuration
+httpBindAddress: "0.0.0.0"
+httpPort: 8545
+wsBindAddress: "0.0.0.0"
+wsPort: 8546
+
+# TLS configuration (optional)
+enableTLS: false
+tlsCert: ""
+tlsKey: ""
+
+# JSON-RPC configuration
+enableHTTP: true
+enableWS: true
+corsOrigins:
+  - "*"
+maxRequestSize: 1048576  # 1MB
+requestTimeout: "30s"
+batchLimit: 100
+
+# Transaction pool configuration
+txPoolCapacity: 10000
+txPoolTimeout: "300s"
+maxTxLifetime: "600s"
+
+# WebSocket configuration
+wsMaxConnections: 1000
+wsPingInterval: "30s"
+wsWriteTimeout: "10s"
+wsReadTimeout: "10s"
+
+# Backend services configuration (K8s service addresses)
+backendServices:
+  # YaoVulcan (Consensus/Sequencer) service
+  consensusService:
+    name: "yao-vulcan-service"
+    namespace: "yao-verse"
+    endpoints:
+      - "http://yao-vulcan-service.yao-verse.svc.cluster.local:8080"
+    healthCheckPath: "/health"
+    
+  # YaoChronos (EVM execution) service
+  executionService:
+    name: "yao-chronos-service"
+    namespace: "yao-verse"
+    endpoints:
+      - "http://yao-chronos-service.yao-verse.svc.cluster.local:8080"
+    healthCheckPath: "/health"
+    
+  # YaoOracle (State reading) service
+  stateService:
+    name: "yao-oracle-service"
+    namespace: "yao-verse"
+    endpoints:
+      - "http://yao-oracle-service.yao-verse.svc.cluster.local:8080"
+    healthCheckPath: "/health"
+    
+  # YaoArchive (Historical data) service
+  archiveService:
+    name: "yao-archive-service"
+    namespace: "yao-verse"
+    endpoints:
+      - "http://yao-archive-service.yao-verse.svc.cluster.local:8080"
+    healthCheckPath: "/health"
+
+# Ethereum compatibility configuration
+ethereum:
+  networkName: "YaoVerse"
+  chainId: 1337
+  defaultGasPrice: "20000000000"  # 20 gwei
+  defaultGasLimit: 21000
+  blockTime: "3s"
+  maxBlockSize: 15000000  # 15M gas limit
+  
+# State reading configuration
+stateReadTimeout: "5s"
+maxBlockRange: 1000
+enableTracing: false
+
+# Message queue configuration
+rocketmqEndpoints:
+  - "rocketmq-nameserver.yao-verse.svc.cluster.local:9876"
+rocketmQAccessKey: ""
+rocketMQSecretKey: ""
+producerGroup: "yao-portal-producer"
+consumerGroup: "yao-portal-consumer"
+
+# Rate limiting configuration
+enableRateLimit: true
+requestsPerSecond: 1000
+burstSize: 2000
+rateLimitWindowSize: "1m"
+
+# Authentication configuration
+enableAuth: false
+allowedOrigins:
+  - "*"
+apiKeys: []
+jwtSecret: ""
+
+# Monitoring configuration
+enableMetrics: true
+metricsInterval: "10s"
+enableHealthCheck: true
+healthCheckInterval: "30s"
+metricsPort: 9090
+
+# Logging configuration
+logLevel: "info"
+logFormat: "json"
+logFile: "logs/portal.log"
+logRequests: true
+logResponses: false
+enableAccessLog: true 
